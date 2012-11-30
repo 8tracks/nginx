@@ -109,6 +109,10 @@ static ngx_int_t ngx_http_variable_hostname(ngx_http_request_t *r,
 static ngx_int_t ngx_http_variable_pid(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
+/* 8tracks addition for New Relic's request tracking */
+static ngx_int_t ngx_http_variable_start_time(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+
 /*
  * TODO:
  *     Apache CGI: AUTH_TYPE, PATH_INFO (null), PATH_TRANSLATED
@@ -283,6 +287,10 @@ static ngx_http_variable_t  ngx_http_core_variables[] = {
       0, 0, 0 },
 
     { ngx_string("pid"), NULL, ngx_http_variable_pid,
+      0, 0, 0 },
+
+    /* 8tracks addition */
+    { ngx_string("start_time"), NULL, ngx_http_variable_start_time,
       0, 0, 0 },
 
 #if (NGX_HAVE_TCP_INFO)
@@ -2058,6 +2066,27 @@ ngx_http_regex_compile(ngx_conf_t *cf, ngx_regex_compile_t *rc)
     return re;
 }
 
+static ngx_int_t
+ngx_http_variable_start_time(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    u_char  *p;
+
+    p = ngx_pnalloc(r->pool, NGX_INT64_LEN);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    uint64_t usec = (((uint64_t)r->start_sec * 1000 * 1000) + ((uint64_t)r->start_msec * 1000));
+
+    v->len = ngx_sprintf(p, "%L", usec) - p;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = p;
+
+    return NGX_OK;
+}
 
 ngx_int_t
 ngx_http_regex_exec(ngx_http_request_t *r, ngx_http_regex_t *re, ngx_str_t *s)
